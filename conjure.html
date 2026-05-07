@@ -1,0 +1,3192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Conjure — AI Image Prompt Builder</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --surface: #111118;
+    --surface2: #1a1a24;
+    --surface3: #22222f;
+    --border: #2a2a3a;
+    --border2: #3a3a52;
+    --accent: #7c6ef7;
+    --accent2: #e85d9b;
+    --accent3: #3dd6c8;
+    --text: #e8e8f0;
+    --text2: #9090b0;
+    --text3: #5a5a7a;
+    --danger: #f05a5a;
+    --success: #3dd690;
+    --warning: #f0b95a;
+    --glow: rgba(124,110,247,0.15);
+    --glow2: rgba(232,93,155,0.1);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Syne', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Background grid */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(124,110,247,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(124,110,247,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  body::after {
+    content: '';
+    position: fixed;
+    top: -200px;
+    right: -200px;
+    width: 600px;
+    height: 600px;
+    background: radial-gradient(circle, rgba(124,110,247,0.08) 0%, transparent 70%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* HEADER */
+  header {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: rgba(10,10,15,0.85);
+    backdrop-filter: blur(20px);
+    border-bottom: 1px solid var(--border);
+    padding: 0 32px;
+    height: 64px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .logo-icon {
+    width: 36px;
+    height: 36px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+  }
+
+  .logo-text {
+    font-size: 20px;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .logo-sub {
+    font-size: 11px;
+    color: var(--text3);
+    font-family: 'JetBrains Mono', monospace;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-top: -2px;
+  }
+
+  .header-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  /* LAYOUT */
+  .app-layout {
+    display: grid;
+    grid-template-columns: 320px 1fr;
+    min-height: calc(100vh - 64px);
+    position: relative;
+    z-index: 1;
+  }
+
+  /* SIDEBAR */
+  .sidebar {
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .sidebar-header {
+    padding: 20px 20px 16px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .sidebar-title {
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--text2);
+  }
+
+  .character-count {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    background: var(--surface3);
+    color: var(--accent);
+    padding: 3px 8px;
+    border-radius: 20px;
+    border: 1px solid var(--border2);
+  }
+
+  .character-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .character-list::-webkit-scrollbar { width: 4px; }
+  .character-list::-webkit-scrollbar-track { background: transparent; }
+  .character-list::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+
+  .character-card {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px;
+    cursor: pointer;
+    transition: all 0.2s;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .character-card::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+    background: transparent;
+    transition: background 0.2s;
+  }
+
+  .character-card:hover {
+    border-color: var(--border2);
+    background: var(--surface3);
+  }
+
+  .character-card.active {
+    border-color: var(--accent);
+    background: rgba(124,110,247,0.08);
+  }
+
+  .character-card.active::before {
+    background: var(--accent);
+  }
+
+  .char-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 6px;
+  }
+
+  .char-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 15px;
+    font-weight: 800;
+    margin-right: 10px;
+    flex-shrink: 0;
+  }
+
+  .char-info {
+    flex: 1;
+  }
+
+  .char-name {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text);
+  }
+
+  .char-gender {
+    font-size: 11px;
+    color: var(--text3);
+    font-family: 'JetBrains Mono', monospace;
+    margin-top: 1px;
+  }
+
+  .char-actions {
+    display: flex;
+    gap: 4px;
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+
+  .character-card:hover .char-actions { opacity: 1; }
+
+  .char-btn {
+    width: 26px;
+    height: 26px;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    transition: all 0.2s;
+  }
+
+  .char-btn-edit {
+    background: rgba(124,110,247,0.15);
+    color: var(--accent);
+  }
+  .char-btn-edit:hover { background: rgba(124,110,247,0.3); }
+
+  .char-btn-delete {
+    background: rgba(240,90,90,0.15);
+    color: var(--danger);
+  }
+  .char-btn-delete:hover { background: rgba(240,90,90,0.3); }
+
+  .char-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-top: 8px;
+  }
+
+  .char-tag {
+    font-size: 10px;
+    font-family: 'JetBrains Mono', monospace;
+    background: var(--surface3);
+    color: var(--text3);
+    padding: 2px 7px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    max-width: 80px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .empty-chars {
+    text-align: center;
+    padding: 40px 20px;
+    color: var(--text3);
+  }
+
+  .empty-chars .empty-icon { font-size: 40px; margin-bottom: 12px; }
+  .empty-chars p { font-size: 13px; line-height: 1.6; }
+
+  .sidebar-footer {
+    padding: 16px;
+    border-top: 1px solid var(--border);
+  }
+
+  /* MAIN CONTENT */
+  .main-content {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* TABS */
+  .tab-bar {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    padding: 0 24px;
+    gap: 0;
+  }
+
+  .tab-btn {
+    padding: 16px 20px 14px;
+    font-family: 'Syne', sans-serif;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    color: var(--text3);
+    background: none;
+    border: none;
+    cursor: pointer;
+    position: relative;
+    transition: color 0.2s;
+    text-transform: uppercase;
+  }
+
+  .tab-btn::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: var(--accent);
+    transform: scaleX(0);
+    transition: transform 0.2s;
+  }
+
+  .tab-btn:hover { color: var(--text2); }
+
+  .tab-btn.active {
+    color: var(--text);
+  }
+  .tab-btn.active::after { transform: scaleX(1); }
+
+  .tab-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 24px;
+  }
+
+  .tab-content::-webkit-scrollbar { width: 6px; }
+  .tab-content::-webkit-scrollbar-track { background: transparent; }
+  .tab-content::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+
+  /* FORM ELEMENTS */
+  .section {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 22px;
+    margin-bottom: 20px;
+    position: relative;
+  }
+
+  .section-title {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 2.5px;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 18px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .section-title::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: linear-gradient(to right, var(--border), transparent);
+  }
+
+  .form-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 14px;
+  }
+
+  .form-grid-3 {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 14px;
+  }
+
+  .form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .form-group.full { grid-column: 1 / -1; }
+
+  label {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--text2);
+  }
+
+  input[type="text"], textarea, select {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 10px 14px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    color: var(--text);
+    outline: none;
+    transition: all 0.2s;
+    width: 100%;
+  }
+
+  input[type="text"]:focus, textarea:focus, select:focus {
+    border-color: var(--accent);
+    background: var(--surface3);
+    box-shadow: 0 0 0 3px rgba(124,110,247,0.12);
+  }
+
+  textarea {
+    resize: vertical;
+    min-height: 90px;
+    line-height: 1.6;
+  }
+
+  select {
+    cursor: pointer;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%235a5a7a' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 14px center;
+    padding-right: 36px;
+  }
+
+  select option {
+    background: var(--surface2);
+    color: var(--text);
+  }
+
+  input::placeholder, textarea::placeholder {
+    color: var(--text3);
+    font-size: 12px;
+  }
+
+  /* BUTTONS */
+  .btn {
+    padding: 10px 20px;
+    border-radius: 10px;
+    font-family: 'Syne', sans-serif;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+  }
+
+  .btn-primary {
+    background: linear-gradient(135deg, var(--accent), #5a4fd4);
+    color: white;
+    box-shadow: 0 4px 15px rgba(124,110,247,0.3);
+  }
+  .btn-primary:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 20px rgba(124,110,247,0.4);
+  }
+  .btn-primary:active { transform: translateY(0); }
+
+  .btn-secondary {
+    background: var(--surface2);
+    color: var(--text2);
+    border: 1px solid var(--border);
+  }
+  .btn-secondary:hover {
+    background: var(--surface3);
+    color: var(--text);
+    border-color: var(--border2);
+  }
+
+  .btn-danger {
+    background: rgba(240,90,90,0.15);
+    color: var(--danger);
+    border: 1px solid rgba(240,90,90,0.3);
+  }
+  .btn-danger:hover { background: rgba(240,90,90,0.25); }
+
+  .btn-success {
+    background: linear-gradient(135deg, #2a9d6a, #1e7a52);
+    color: white;
+    box-shadow: 0 4px 15px rgba(61,214,144,0.2);
+  }
+  .btn-success:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 20px rgba(61,214,144,0.3);
+  }
+
+  .btn-pink {
+    background: linear-gradient(135deg, var(--accent2), #c0395a);
+    color: white;
+    box-shadow: 0 4px 15px rgba(232,93,155,0.3);
+  }
+  .btn-pink:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 20px rgba(232,93,155,0.4);
+  }
+
+  .btn-full { width: 100%; justify-content: center; }
+
+  .btn-sm {
+    padding: 7px 14px;
+    font-size: 12px;
+    border-radius: 8px;
+  }
+
+  /* TOGGLE SWITCH */
+  .toggle-wrap {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+    user-select: none;
+  }
+
+  .toggle-wrap:hover { border-color: var(--border2); }
+
+  .toggle-wrap.nsfw-toggle {
+    border-color: rgba(240,90,90,0.3);
+    background: rgba(240,90,90,0.05);
+  }
+
+  .toggle {
+    width: 40px;
+    height: 22px;
+    background: var(--surface3);
+    border-radius: 11px;
+    position: relative;
+    transition: background 0.3s;
+    flex-shrink: 0;
+    border: 1px solid var(--border2);
+  }
+
+  .toggle::after {
+    content: '';
+    position: absolute;
+    width: 16px;
+    height: 16px;
+    background: var(--text3);
+    border-radius: 50%;
+    top: 2px;
+    left: 2px;
+    transition: all 0.3s;
+  }
+
+  .toggle.on { background: var(--accent); border-color: var(--accent); }
+  .toggle.on::after { transform: translateX(18px); background: white; }
+  .toggle.on.nsfw-on { background: var(--danger); border-color: var(--danger); }
+
+  .toggle-label { font-size: 13px; font-weight: 600; }
+  .toggle-sub { font-size: 11px; color: var(--text3); font-family: 'JetBrains Mono', monospace; }
+
+  /* CHIP SELECTOR */
+  .chip-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .chip {
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+    border: 1px solid var(--border);
+    background: var(--surface2);
+    color: var(--text2);
+    cursor: pointer;
+    transition: all 0.15s;
+    font-family: 'JetBrains Mono', monospace;
+    user-select: none;
+  }
+
+  .chip:hover { border-color: var(--border2); color: var(--text); }
+
+  .chip.selected {
+    background: rgba(124,110,247,0.15);
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  /* ASPECT RATIO SELECTOR */
+  .aspect-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+  }
+
+  .aspect-card {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 12px 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    user-select: none;
+  }
+
+  .aspect-card:hover { border-color: var(--border2); }
+
+  .aspect-card.selected {
+    border-color: var(--accent);
+    background: rgba(124,110,247,0.1);
+  }
+
+  .aspect-visual {
+    background: var(--surface3);
+    border: 1px solid var(--border2);
+    border-radius: 4px;
+    transition: background 0.2s;
+  }
+
+  .aspect-card.selected .aspect-visual {
+    background: rgba(124,110,247,0.3);
+    border-color: var(--accent);
+  }
+
+  .aspect-label {
+    font-size: 11px;
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--text2);
+    text-align: center;
+  }
+
+  .aspect-card.selected .aspect-label { color: var(--accent); }
+
+  /* RANGE SLIDER */
+  .range-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .range-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  input[type="range"] {
+    width: 100%;
+    -webkit-appearance: none;
+    height: 4px;
+    background: var(--surface3);
+    border-radius: 2px;
+    outline: none;
+    border: none;
+    padding: 0;
+  }
+
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: var(--accent);
+    cursor: pointer;
+    box-shadow: 0 0 8px rgba(124,110,247,0.5);
+    transition: transform 0.2s;
+  }
+
+  input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.2); }
+
+  .range-value {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: var(--accent);
+    background: rgba(124,110,247,0.1);
+    padding: 2px 8px;
+    border-radius: 6px;
+    border: 1px solid rgba(124,110,247,0.3);
+  }
+
+  /* SCENE CHARACTER SELECTOR */
+  .scene-chars {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 14px;
+  }
+
+  .scene-char-chip {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 700;
+    border: 1px solid var(--border);
+    background: var(--surface2);
+    color: var(--text2);
+    cursor: pointer;
+    transition: all 0.15s;
+    user-select: none;
+  }
+
+  .scene-char-chip.selected {
+    border-color: var(--accent);
+    background: rgba(124,110,247,0.15);
+    color: var(--text);
+  }
+
+  .scene-char-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  /* PROMPT OUTPUT */
+  .prompt-output-wrap {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    overflow: hidden;
+    margin-top: 24px;
+  }
+
+  .prompt-output-header {
+    padding: 16px 20px;
+    background: var(--surface2);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .prompt-output-title {
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--text2);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .prompt-live-badge {
+    font-size: 10px;
+    background: rgba(61,214,144,0.15);
+    color: var(--success);
+    border: 1px solid rgba(61,214,144,0.3);
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-family: 'JetBrains Mono', monospace;
+    animation: pulse-badge 2s infinite;
+  }
+
+  @keyframes pulse-badge {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.6; }
+  }
+
+  .prompt-tabs {
+    display: flex;
+    gap: 4px;
+  }
+
+  .prompt-tab {
+    padding: 5px 12px;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    cursor: pointer;
+    border: none;
+    font-family: 'Syne', sans-serif;
+    transition: all 0.2s;
+    color: var(--text3);
+    background: transparent;
+  }
+
+  .prompt-tab.active {
+    background: var(--surface3);
+    color: var(--text);
+  }
+
+  .prompt-output-body {
+    padding: 20px;
+  }
+
+  .prompt-text {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    line-height: 1.8;
+    color: var(--text);
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px;
+    min-height: 100px;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+
+  .prompt-text .keyword { color: var(--accent); }
+  .prompt-text .character { color: var(--accent3); }
+  .prompt-text .negative { color: var(--danger); }
+  .prompt-text .quality { color: var(--warning); }
+
+  .prompt-empty {
+    color: var(--text3);
+    font-style: italic;
+    font-size: 13px;
+  }
+
+  .prompt-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 16px;
+    flex-wrap: wrap;
+  }
+
+  /* TAGS INPUT */
+  .tags-input-wrap {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 8px;
+    min-height: 44px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    align-items: center;
+    cursor: text;
+    transition: all 0.2s;
+  }
+
+  .tags-input-wrap:focus-within {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(124,110,247,0.12);
+  }
+
+  .tag-item {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    background: rgba(124,110,247,0.15);
+    border: 1px solid rgba(124,110,247,0.3);
+    color: var(--accent);
+    padding: 3px 8px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .tag-item button {
+    background: none;
+    border: none;
+    color: inherit;
+    cursor: pointer;
+    font-size: 13px;
+    line-height: 1;
+    opacity: 0.6;
+    transition: opacity 0.2s;
+    padding: 0;
+  }
+  .tag-item button:hover { opacity: 1; }
+
+  .tag-input-field {
+    border: none;
+    background: transparent;
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    outline: none;
+    min-width: 80px;
+    flex: 1;
+    padding: 3px 4px;
+  }
+
+  .tag-input-field::placeholder { color: var(--text3); }
+
+  /* MODAL */
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.7);
+    backdrop-filter: blur(8px);
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.25s;
+  }
+
+  .modal-overlay.open { opacity: 1; pointer-events: all; }
+
+  .modal {
+    background: var(--surface);
+    border: 1px solid var(--border2);
+    border-radius: 20px;
+    width: 90%;
+    max-width: 680px;
+    max-height: 85vh;
+    overflow-y: auto;
+    transform: scale(0.95) translateY(10px);
+    transition: transform 0.25s;
+    box-shadow: 0 40px 80px rgba(0,0,0,0.5);
+  }
+
+  .modal-overlay.open .modal { transform: scale(1) translateY(0); }
+
+  .modal::-webkit-scrollbar { width: 4px; }
+  .modal::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+
+  .modal-header {
+    padding: 24px 24px 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    background: var(--surface);
+    z-index: 1;
+  }
+
+  .modal-title {
+    font-size: 18px;
+    font-weight: 800;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .modal-close {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text2);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    transition: all 0.2s;
+  }
+  .modal-close:hover { background: var(--surface3); color: var(--text); }
+
+  .modal-body { padding: 24px; }
+
+  .modal-footer {
+    padding: 20px 24px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+  }
+
+  /* COLOR PICKER */
+  .color-options {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .color-option {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    cursor: pointer;
+    border: 2px solid transparent;
+    transition: all 0.15s;
+    flex-shrink: 0;
+  }
+
+  .color-option:hover { transform: scale(1.15); }
+  .color-option.selected { border-color: white; box-shadow: 0 0 0 2px var(--accent); }
+
+  .color-option-custom {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    cursor: pointer;
+    border: 2px dashed var(--border2);
+    background: var(--surface3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    transition: all 0.15s;
+    overflow: hidden;
+    position: relative;
+  }
+
+  .color-option-custom input[type="color"] {
+    position: absolute;
+    opacity: 0;
+    width: 100%;
+    height: 100%;
+    cursor: pointer;
+    border: none;
+    background: none;
+    padding: 0;
+    top: 0;
+    left: 0;
+  }
+
+  /* NOTIFICATION TOAST */
+  .toast-container {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    pointer-events: none;
+  }
+
+  .toast {
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    border-radius: 12px;
+    padding: 12px 18px;
+    font-size: 13px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+    animation: toast-in 0.3s ease, toast-out 0.3s ease 2.7s forwards;
+    pointer-events: all;
+  }
+
+  .toast.success { border-color: rgba(61,214,144,0.4); color: var(--success); }
+  .toast.error { border-color: rgba(240,90,90,0.4); color: var(--danger); }
+  .toast.info { border-color: rgba(124,110,247,0.4); color: var(--accent); }
+
+  @keyframes toast-in {
+    from { opacity: 0; transform: translateX(20px); }
+    to { opacity: 1; transform: translateX(0); }
+  }
+
+  @keyframes toast-out {
+    from { opacity: 1; transform: translateX(0); }
+    to { opacity: 0; transform: translateX(20px); }
+  }
+
+  /* SETTINGS GRID */
+  .settings-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+  }
+
+  /* BODY TYPE VISUAL */
+  .body-type-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+  }
+
+  .body-type-card {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 10px 8px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    user-select: none;
+  }
+
+  .body-type-card:hover { border-color: var(--border2); }
+  .body-type-card.selected {
+    border-color: var(--accent);
+    background: rgba(124,110,247,0.1);
+  }
+
+  .body-type-icon { font-size: 22px; margin-bottom: 5px; }
+  .body-type-label {
+    font-size: 10px;
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--text2);
+  }
+  .body-type-card.selected .body-type-label { color: var(--accent); }
+
+  /* PHOTO MOOD */
+  .mood-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+  }
+
+  .mood-card {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 8px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    user-select: none;
+  }
+
+  .mood-card:hover { border-color: var(--border2); }
+  .mood-card.selected {
+    border-color: var(--accent2);
+    background: rgba(232,93,155,0.1);
+  }
+
+  .mood-icon { font-size: 22px; margin-bottom: 4px; }
+  .mood-label {
+    font-size: 11px;
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--text2);
+  }
+  .mood-card.selected .mood-label { color: var(--accent2); }
+
+  /* SEPARATOR */
+  .sep { height: 1px; background: var(--border); margin: 4px 0; }
+
+  /* NSFW WARNING */
+  .nsfw-warning {
+    background: rgba(240,90,90,0.08);
+    border: 1px solid rgba(240,90,90,0.3);
+    border-radius: 10px;
+    padding: 12px 16px;
+    font-size: 12px;
+    color: var(--danger);
+    font-family: 'JetBrains Mono', monospace;
+    margin-top: 12px;
+    display: none;
+  }
+
+  .nsfw-warning.show { display: block; }
+
+  /* CHAR DISPLAY IN SCENE */
+  .chars-in-scene {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .char-scene-item {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px;
+  }
+
+  .char-scene-name {
+    font-size: 13px;
+    font-weight: 700;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  /* INFO BADGE */
+  .badge {
+    font-size: 10px;
+    font-family: 'JetBrains Mono', monospace;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-weight: 600;
+  }
+
+  .badge-purple { background: rgba(124,110,247,0.15); color: var(--accent); border: 1px solid rgba(124,110,247,0.3); }
+  .badge-pink { background: rgba(232,93,155,0.15); color: var(--accent2); border: 1px solid rgba(232,93,155,0.3); }
+  .badge-teal { background: rgba(61,214,200,0.15); color: var(--accent3); border: 1px solid rgba(61,214,200,0.3); }
+
+  /* HELP TEXT */
+  .help { font-size: 11px; color: var(--text3); font-family: 'JetBrains Mono', monospace; margin-top: 4px; }
+
+  /* GENERATION SETTINGS VISUAL SELECTORS */
+  .style-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+  }
+
+  .style-card {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 8px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    user-select: none;
+  }
+
+  .style-card:hover { border-color: var(--border2); }
+  .style-card.selected {
+    border-color: var(--accent3);
+    background: rgba(61,214,200,0.08);
+  }
+
+  .style-icon { font-size: 24px; margin-bottom: 5px; }
+  .style-label { font-size: 11px; font-family: 'JetBrains Mono', monospace; color: var(--text2); }
+  .style-card.selected .style-label { color: var(--accent3); }
+
+  /* CHARACTER IMPORT NOTICE */
+  .char-import-notice {
+    font-size: 12px;
+    color: var(--text3);
+    font-family: 'JetBrains Mono', monospace;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 12px;
+    margin-bottom: 12px;
+  }
+
+  .char-import-notice span { color: var(--accent); }
+
+  /* PRESETS */
+  .presets-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+    margin-bottom: 14px;
+  }
+
+  .preset-card {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 14px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .preset-card:hover { border-color: var(--border2); background: var(--surface3); }
+
+  .preset-name { font-size: 13px; font-weight: 700; margin-bottom: 3px; }
+  .preset-desc { font-size: 11px; color: var(--text3); font-family: 'JetBrains Mono', monospace; }
+
+  /* ANIMATED GRADIENT TEXT */
+  .grad-text {
+    background: linear-gradient(135deg, var(--accent), var(--accent2), var(--accent3));
+    background-size: 200% 200%;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    animation: grad-anim 4s ease infinite;
+  }
+
+  @keyframes grad-anim {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+  }
+
+  /* Responsive */
+  /* ── TABLET ── */
+  @media (max-width: 900px) {
+    .app-layout { grid-template-columns: 1fr; }
+    .sidebar { display: none; }
+    .form-grid { grid-template-columns: 1fr; }
+    .aspect-grid { grid-template-columns: repeat(4, 1fr); }
+    .style-grid { grid-template-columns: repeat(3, 1fr); }
+    .tab-content { padding: 16px; }
+  }
+
+  /* ── MOBILE ── */
+  @media (max-width: 600px) {
+
+    /* Header */
+    header {
+      padding: 0 14px;
+      height: auto;
+      min-height: 56px;
+      flex-wrap: wrap;
+      gap: 8px;
+      padding-top: 10px;
+      padding-bottom: 10px;
+    }
+    .logo-sub { display: none; }
+    .logo-text { font-size: 17px; }
+    .logo-icon { width: 30px; height: 30px; font-size: 15px; }
+    .header-actions { gap: 6px; }
+    .header-actions .btn-sm { padding: 6px 10px; font-size: 11px; }
+    .toggle-wrap { padding: 6px 10px !important; }
+    .toggle-label { font-size: 11px !important; }
+
+    /* Layout */
+    .app-layout { grid-template-columns: 1fr; }
+    .sidebar { display: none; }
+
+    /* Tabs */
+    .tab-bar {
+      padding: 0 8px;
+      overflow-x: auto;
+      overflow-y: hidden;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+      flex-shrink: 0;
+    }
+    .tab-bar::-webkit-scrollbar { display: none; }
+    .tab-btn {
+      padding: 13px 12px 11px;
+      font-size: 11px;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+
+    /* Tab content */
+    .tab-content { padding: 12px; }
+
+    /* Sections */
+    .section { padding: 14px; margin-bottom: 14px; border-radius: 12px; }
+    .section-title { font-size: 10px; margin-bottom: 14px; }
+
+    /* Forms */
+    .form-grid, .form-grid-3, .settings-grid { grid-template-columns: 1fr; }
+    .form-group.full { grid-column: 1; }
+    input[type="text"], textarea, select {
+      font-size: 16px; /* prevents iOS zoom on focus */
+      padding: 10px 12px;
+    }
+    textarea { min-height: 80px; }
+
+    /* Grids */
+    .aspect-grid { grid-template-columns: repeat(4, 1fr); gap: 6px; }
+    .aspect-card { padding: 8px 4px; border-radius: 8px; }
+    .aspect-label { font-size: 9px; }
+
+    .style-grid { grid-template-columns: repeat(3, 1fr); gap: 6px; }
+    .style-card { padding: 10px 4px; border-radius: 8px; }
+    .style-icon { font-size: 20px; }
+    .style-label { font-size: 10px; }
+
+    .body-type-grid { grid-template-columns: repeat(4, 1fr); gap: 6px; }
+    .body-type-card { padding: 8px 4px; }
+    .body-type-icon { font-size: 18px; }
+    .body-type-label { font-size: 9px; }
+
+    .mood-grid { grid-template-columns: repeat(3, 1fr); gap: 6px; }
+    .mood-card { padding: 10px 4px; }
+    .mood-icon { font-size: 18px; }
+    .mood-label { font-size: 10px; }
+
+    /* Chips */
+    .chip { font-size: 11px; padding: 5px 10px; }
+    .chip-group { gap: 6px; }
+
+    /* Prompt output */
+    .prompt-output-header {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 12px 14px;
+    }
+    .prompt-tabs { width: 100%; overflow-x: auto; display: flex; gap: 2px; }
+    .prompt-tab { font-size: 10px; padding: 5px 10px; white-space: nowrap; flex-shrink: 0; }
+    .prompt-output-body { padding: 12px 14px; }
+    .prompt-text { font-size: 12px; padding: 12px; }
+    .prompt-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+    .prompt-actions .btn { justify-content: center; font-size: 11px; padding: 8px 6px; }
+
+    /* Generate buttons row */
+    .generate-row {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    /* Buttons */
+    .btn { font-size: 13px; }
+    .btn-full { padding: 12px; }
+
+    /* Scene char chips */
+    .scene-chars { gap: 6px; }
+    .scene-char-chip { font-size: 11px; padding: 5px 10px; }
+
+    /* Char scene item */
+    .char-scene-item { padding: 12px; }
+
+    /* Presets */
+    .presets-grid { grid-template-columns: 1fr; }
+
+    /* Toast */
+    .toast-container { bottom: 16px; right: 12px; left: 12px; }
+    .toast { font-size: 12px; padding: 10px 14px; }
+
+    /* Modal */
+    .modal {
+      width: 100%;
+      max-width: 100%;
+      max-height: 92vh;
+      border-radius: 20px 20px 0 0;
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      margin: 0;
+    }
+    .modal-overlay { align-items: flex-end; }
+    .modal-overlay .modal {
+      transform: translateY(20px);
+    }
+    .modal-overlay.open .modal {
+      transform: translateY(0);
+    }
+    .modal-header { padding: 18px 16px 14px; }
+    .modal-title { font-size: 16px; }
+    .modal-body { padding: 14px 16px; }
+    .modal-footer { padding: 14px 16px; gap: 8px; }
+    .modal-footer .btn { flex: 1; justify-content: center; }
+    .modal .section { padding: 12px; margin-bottom: 12px; }
+
+    /* Color pickers */
+    .color-options { gap: 7px; flex-wrap: wrap; }
+    .color-option, .color-option-custom { width: 26px; height: 26px; }
+
+    /* Range */
+    .range-value { font-size: 11px; }
+
+    /* Tags */
+    .tag-item { font-size: 11px; }
+    .tags-input-wrap { padding: 6px; }
+    .tag-input-field { font-size: 14px; }
+
+    /* Char card in sidebar (when visible) */
+    .character-card { padding: 10px; }
+
+    /* Mobile characters floating button */
+    .mobile-chars-btn {
+      display: flex !important;
+    }
+  }
+
+  /* Extra small phones */
+  @media (max-width: 380px) {
+    .aspect-grid { grid-template-columns: repeat(4, 1fr); gap: 4px; }
+    .body-type-grid { grid-template-columns: repeat(4, 1fr); gap: 4px; }
+    .style-grid { grid-template-columns: repeat(2, 1fr); }
+    .mood-grid { grid-template-columns: repeat(3, 1fr); }
+    .header-actions .btn-sm { display: none; }
+  }
+
+  /* Mobile character drawer */
+  .mobile-chars-btn {
+    display: none;
+    position: fixed;
+    bottom: 20px;
+    left: 20px;
+    z-index: 200;
+    background: linear-gradient(135deg, var(--accent), #5a4fd4);
+    color: white;
+    border: none;
+    border-radius: 50px;
+    padding: 12px 20px;
+    font-family: 'Syne', sans-serif;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    box-shadow: 0 4px 20px rgba(124,110,247,0.4);
+    align-items: center;
+    gap: 8px;
+  }
+
+  .mobile-drawer-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.6);
+    backdrop-filter: blur(6px);
+    z-index: 300;
+  }
+  .mobile-drawer-overlay.open { display: block; }
+
+  .mobile-drawer {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 301;
+    background: var(--surface);
+    border-radius: 20px 20px 0 0;
+    border-top: 1px solid var(--border2);
+    max-height: 75vh;
+    display: flex;
+    flex-direction: column;
+    transform: translateY(100%);
+    transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  .mobile-drawer.open { transform: translateY(0); }
+
+  .mobile-drawer-handle {
+    width: 40px;
+    height: 4px;
+    background: var(--border2);
+    border-radius: 2px;
+    margin: 12px auto 0;
+    flex-shrink: 0;
+  }
+
+  .mobile-drawer-header {
+    padding: 14px 20px 10px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+
+  .mobile-drawer-content {
+    overflow-y: auto;
+    flex: 1;
+    padding: 12px;
+  }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header>
+  <div class="logo">
+    <div class="logo-icon">⚡</div>
+    <div>
+      <div class="logo-text">Conjure</div>
+      <div class="logo-sub">AI Image Prompt Builder</div>
+    </div>
+  </div>
+  <div class="header-actions">
+    <div class="toggle-wrap nsfw-toggle" id="nsfwToggleHeader" onclick="toggleNSFW()" style="padding: 8px 14px;">
+      <div class="toggle" id="nsfwToggleEl"></div>
+      <div>
+        <div class="toggle-label" style="font-size:12px;">NSFW</div>
+      </div>
+    </div>
+    <button class="btn btn-secondary btn-sm" onclick="exportAll()">⬇ Export</button>
+    <button class="btn btn-secondary btn-sm" onclick="importAll()">⬆ Import</button>
+  </div>
+</header>
+
+<!-- APP LAYOUT -->
+<div class="app-layout">
+  <!-- SIDEBAR: Characters List -->
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <span class="sidebar-title">Characters</span>
+      <span class="character-count" id="charCount">0</span>
+    </div>
+    <div class="character-list" id="characterList">
+      <div class="empty-chars">
+        <div class="empty-icon">👤</div>
+        <p>No characters yet.<br>Create your first character to get started.</p>
+      </div>
+    </div>
+    <div class="sidebar-footer">
+      <button class="btn btn-primary btn-full" onclick="openCharacterModal()">＋ New Character</button>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <main class="main-content">
+    <div class="tab-bar">
+      <button class="tab-btn active" onclick="switchTab('scene', this)">🎬 Scene Builder</button>
+      <button class="tab-btn" onclick="switchTab('settings', this)">⚙ Generation</button>
+      <button class="tab-btn" onclick="switchTab('prompts', this)">📋 Saved Prompts</button>
+      <button class="tab-btn" onclick="switchTab('guide', this)">💡 Guide</button>
+    </div>
+
+    <div class="tab-content">
+
+      <!-- SCENE BUILDER TAB -->
+      <div class="tab-panel active" id="tab-scene">
+
+        <!-- Characters in Scene -->
+        <div class="section">
+          <div class="section-title">🧑 Characters in Scene</div>
+          <p class="help" style="margin-bottom:12px;">Select which characters appear in this scene. At least one required.</p>
+          <div id="sceneCharChips" class="scene-chars">
+            <span style="color:var(--text3);font-size:12px;font-family:'JetBrains Mono',monospace;">Create characters first, then select them here.</span>
+          </div>
+          <div id="sceneCharDetails" class="chars-in-scene"></div>
+        </div>
+
+        <!-- Scene Description -->
+        <div class="section">
+          <div class="section-title">🌍 Scene Description</div>
+          <div class="form-grid">
+            <div class="form-group">
+              <label>Environment</label>
+              <select id="sceneEnv">
+                <option value="">— Select —</option>
+                <option>Indoor — Bedroom</option>
+                <option>Indoor — Living Room</option>
+                <option>Indoor — Kitchen</option>
+                <option>Indoor — Office</option>
+                <option>Indoor — Studio</option>
+                <option>Indoor — Bathroom</option>
+                <option>Indoor — Restaurant</option>
+                <option>Indoor — Bar / Club</option>
+                <option>Indoor — Gym</option>
+                <option>Indoor — Hospital</option>
+                <option>Indoor — School / Library</option>
+                <option>Indoor — Hallway / Corridor</option>
+                <option>Outdoor — City Street</option>
+                <option>Outdoor — Park / Garden</option>
+                <option>Outdoor — Beach</option>
+                <option>Outdoor — Forest / Nature</option>
+                <option>Outdoor — Mountain / Cliff</option>
+                <option>Outdoor — Desert</option>
+                <option>Outdoor — Rooftop</option>
+                <option>Outdoor — Ship / Dock</option>
+                <option>Outdoor — Alley</option>
+                <option>Outdoor — Castle / Ruins</option>
+                <option>Fantastical — Magical Forest</option>
+                <option>Fantastical — Space / Galaxy</option>
+                <option>Fantastical — Underwater</option>
+                <option>Fantastical — Post-Apocalyptic</option>
+                <option>Custom (describe below)</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Time of Day</label>
+              <select id="sceneTime">
+                <option value="">— Any —</option>
+                <option>Golden Hour (sunrise)</option>
+                <option>Morning</option>
+                <option>Midday</option>
+                <option>Afternoon</option>
+                <option>Golden Hour (sunset)</option>
+                <option>Dusk / Twilight</option>
+                <option>Night</option>
+                <option>Midnight</option>
+                <option>Dawn</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Weather / Atmosphere</label>
+              <select id="sceneWeather">
+                <option value="">— Any —</option>
+                <option>Clear / Sunny</option>
+                <option>Partly Cloudy</option>
+                <option>Overcast</option>
+                <option>Rainy</option>
+                <option>Stormy</option>
+                <option>Snowy</option>
+                <option>Foggy / Misty</option>
+                <option>Windy</option>
+                <option>Hazy / Humid</option>
+                <option>Ethereal / Magical</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Lighting Style</label>
+              <select id="sceneLighting">
+                <option value="">— Any —</option>
+                <option>Natural Light</option>
+                <option>Soft Diffused Light</option>
+                <option>Hard Directional Light</option>
+                <option>Backlit / Silhouette</option>
+                <option>Rim Lighting</option>
+                <option>Neon / Colored Lights</option>
+                <option>Candlelight / Fire</option>
+                <option>Studio Lighting</option>
+                <option>Moonlight</option>
+                <option>Chiaroscuro / Dramatic Shadow</option>
+                <option>Bioluminescent</option>
+              </select>
+            </div>
+            <div class="form-group full">
+              <label>Background Description</label>
+              <textarea id="sceneBg" placeholder="e.g. A grand ballroom with golden chandeliers, marble floors reflecting the light, tall arched windows overlooking a city at night..."></textarea>
+            </div>
+            <div class="form-group full">
+              <label>Scene Action / Narrative</label>
+              <textarea id="sceneAction" placeholder="e.g. Jack is holding Rose's hand, they are standing at the bow of the ship, wind blowing through their hair, looking into the horizon..."></textarea>
+            </div>
+          </div>
+        </div>
+
+        <!-- Mood & Composition -->
+        <div class="section">
+          <div class="section-title">🎭 Mood & Composition</div>
+          <div class="form-grid">
+            <div class="form-group">
+              <label>Camera Angle</label>
+              <select id="sceneCam">
+                <option value="">— Any —</option>
+                <option>Eye Level</option>
+                <option>Low Angle (looking up)</option>
+                <option>High Angle (looking down)</option>
+                <option>Bird's Eye View (top-down)</option>
+                <option>Worm's Eye View</option>
+                <option>Over-the-Shoulder</option>
+                <option>Dutch / Tilted Angle</option>
+                <option>First Person / POV</option>
+                <option>Side Profile</option>
+                <option>Three-Quarter View</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Shot Type</label>
+              <select id="sceneShot">
+                <option value="">— Any —</option>
+                <option>Extreme Close-Up (face)</option>
+                <option>Close-Up (head and shoulders)</option>
+                <option>Medium Close-Up (chest up)</option>
+                <option>Medium Shot (waist up)</option>
+                <option>Medium Full Shot (knees up)</option>
+                <option>Full Body Shot</option>
+                <option>Wide Shot (character in environment)</option>
+                <option>Extreme Wide Shot (establishing)</option>
+              </select>
+            </div>
+          </div>
+          <div style="margin-top: 14px;">
+            <label>Scene Mood</label>
+            <div class="mood-grid" style="margin-top:10px;" id="moodGrid">
+              <div class="mood-card" data-mood="Romantic"><div class="mood-icon">💕</div><div class="mood-label">Romantic</div></div>
+              <div class="mood-card" data-mood="Action"><div class="mood-icon">⚡</div><div class="mood-label">Action</div></div>
+              <div class="mood-card" data-mood="Melancholic"><div class="mood-icon">🌧</div><div class="mood-label">Melancholic</div></div>
+              <div class="mood-card" data-mood="Mysterious"><div class="mood-icon">🌑</div><div class="mood-label">Mysterious</div></div>
+              <div class="mood-card" data-mood="Joyful"><div class="mood-icon">☀️</div><div class="mood-label">Joyful</div></div>
+              <div class="mood-card" data-mood="Tense"><div class="mood-icon">⚠️</div><div class="mood-label">Tense</div></div>
+              <div class="mood-card" data-mood="Serene"><div class="mood-icon">🕊️</div><div class="mood-label">Serene</div></div>
+              <div class="mood-card" data-mood="Eerie"><div class="mood-icon">👻</div><div class="mood-label">Eerie</div></div>
+              <div class="mood-card" data-mood="Epic"><div class="mood-icon">🔥</div><div class="mood-label">Epic</div></div>
+            </div>
+          </div>
+          <div class="form-group" style="margin-top:14px;">
+            <label>Extra Scene Tags</label>
+            <div class="tags-input-wrap" id="sceneTagsWrap" onclick="this.querySelector('input').focus()">
+              <input class="tag-input-field" id="sceneTagInput" placeholder="type a tag, press Enter..." onkeydown="handleSceneTag(event)">
+            </div>
+            <div class="help">Add any extra descriptors: cinematic, bokeh, depth of field, 35mm, etc.</div>
+          </div>
+        </div>
+
+        <!-- Generate Button -->
+        <div class="generate-row" style="display:flex; gap:12px; margin-bottom:8px; flex-wrap:wrap;">
+          <button class="btn btn-primary" onclick="generatePrompt()" style="flex:1; justify-content:center; padding:14px; font-size:15px;">
+            ⚡ Generate Prompt
+          </button>
+          <button class="btn btn-secondary" onclick="clearScene()">🗑 Clear Scene</button>
+          <button class="btn btn-secondary" onclick="savePrompt()">💾 Save Prompt</button>
+        </div>
+
+        <!-- PROMPT OUTPUT -->
+        <div class="prompt-output-wrap" id="promptOutputWrap">
+          <div class="prompt-output-header">
+            <div class="prompt-output-title">
+              Generated Prompt
+              <span class="prompt-live-badge">LIVE</span>
+            </div>
+            <div class="prompt-tabs">
+              <button class="prompt-tab active" onclick="switchPromptTab('positive', this)">Positive</button>
+              <button class="prompt-tab" onclick="switchPromptTab('negative', this)">Negative</button>
+              <button class="prompt-tab" onclick="switchPromptTab('technical', this)">Technical</button>
+              <button class="prompt-tab" onclick="switchPromptTab('full', this)">Full</button>
+            </div>
+          </div>
+          <div class="prompt-output-body">
+            <div id="promptDisplay" class="prompt-text">
+              <span class="prompt-empty">⚡ Fill in the scene details above and click "Generate Prompt" to build your AI image prompt.</span>
+            </div>
+            <div class="prompt-actions">
+              <button class="btn btn-secondary btn-sm" onclick="copyPrompt()">📋 Copy</button>
+              <button class="btn btn-secondary btn-sm" onclick="copyForMidjourney()">🎨 Copy for Midjourney</button>
+              <button class="btn btn-secondary btn-sm" onclick="copyForSD()">🖼 Copy for Stable Diffusion</button>
+              <button class="btn btn-secondary btn-sm" onclick="copyForDALLE()">🤖 Copy for DALL·E</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- GENERATION SETTINGS TAB -->
+      <div class="tab-panel" id="tab-settings">
+
+        <!-- Image Style -->
+        <div class="section">
+          <div class="section-title">🎨 Image Style</div>
+          <div class="style-grid" id="styleGrid">
+            <div class="style-card" data-style="Photorealistic"><div class="style-icon">📷</div><div class="style-label">Photorealistic</div></div>
+            <div class="style-card" data-style="Hyperrealistic"><div class="style-icon">🔬</div><div class="style-label">Hyperrealistic</div></div>
+            <div class="style-card" data-style="Cinematic"><div class="style-icon">🎬</div><div class="style-label">Cinematic</div></div>
+            <div class="style-card" data-style="Anime / Manga"><div class="style-icon">🌸</div><div class="style-label">Anime / Manga</div></div>
+            <div class="style-card" data-style="3D Render"><div class="style-icon">🧊</div><div class="style-label">3D Render</div></div>
+            <div class="style-card" data-style="Digital Art"><div class="style-icon">🖌️</div><div class="style-label">Digital Art</div></div>
+            <div class="style-card" data-style="Oil Painting"><div class="style-icon">🎭</div><div class="style-label">Oil Painting</div></div>
+            <div class="style-card" data-style="Watercolor"><div class="style-icon">🎨</div><div class="style-label">Watercolor</div></div>
+            <div class="style-card" data-style="Sketch / Pencil"><div class="style-icon">✏️</div><div class="style-label">Sketch / Pencil</div></div>
+            <div class="style-card" data-style="Comic Book"><div class="style-icon">💥</div><div class="style-label">Comic Book</div></div>
+            <div class="style-card" data-style="Fantasy Art"><div class="style-icon">🐉</div><div class="style-label">Fantasy Art</div></div>
+            <div class="style-card" data-style="Sci-Fi / Cyberpunk"><div class="style-icon">🤖</div><div class="style-label">Sci-Fi / Cyberpunk</div></div>
+          </div>
+        </div>
+
+        <!-- Aspect Ratio -->
+        <div class="section">
+          <div class="section-title">📐 Aspect Ratio</div>
+          <div class="aspect-grid" id="aspectGrid">
+            <div class="aspect-card selected" data-ratio="1:1">
+              <div class="aspect-visual" style="width:40px;height:40px;"></div>
+              <div class="aspect-label">1:1<br>Square</div>
+            </div>
+            <div class="aspect-card" data-ratio="4:3">
+              <div class="aspect-visual" style="width:48px;height:36px;"></div>
+              <div class="aspect-label">4:3<br>Standard</div>
+            </div>
+            <div class="aspect-card" data-ratio="16:9">
+              <div class="aspect-visual" style="width:56px;height:32px;"></div>
+              <div class="aspect-label">16:9<br>Widescreen</div>
+            </div>
+            <div class="aspect-card" data-ratio="21:9">
+              <div class="aspect-visual" style="width:64px;height:27px;"></div>
+              <div class="aspect-label">21:9<br>Ultrawide</div>
+            </div>
+            <div class="aspect-card" data-ratio="2:3">
+              <div class="aspect-visual" style="width:32px;height:48px;"></div>
+              <div class="aspect-label">2:3<br>Portrait</div>
+            </div>
+            <div class="aspect-card" data-ratio="9:16">
+              <div class="aspect-visual" style="width:27px;height:48px;"></div>
+              <div class="aspect-label">9:16<br>Mobile</div>
+            </div>
+            <div class="aspect-card" data-ratio="3:4">
+              <div class="aspect-visual" style="width:36px;height:48px;"></div>
+              <div class="aspect-label">3:4<br>Classic</div>
+            </div>
+            <div class="aspect-card" data-ratio="1:2">
+              <div class="aspect-visual" style="width:24px;height:48px;"></div>
+              <div class="aspect-label">1:2<br>Tall</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Resolution -->
+        <div class="section">
+          <div class="section-title">🖥 Resolution & Quality</div>
+          <div class="form-grid">
+            <div class="form-group">
+              <label>Resolution Preset</label>
+              <select id="resPreset" onchange="updateResFromPreset()">
+                <option value="512x512">512×512 (SD Standard)</option>
+                <option value="768x512">768×512 (SD Wide)</option>
+                <option value="512x768">512×768 (SD Tall)</option>
+                <option value="1024x1024" selected>1024×1024 (SDXL Standard)</option>
+                <option value="1216x832">1216×832 (SDXL Wide)</option>
+                <option value="832x1216">832×1216 (SDXL Tall)</option>
+                <option value="1920x1080">1920×1080 (FHD)</option>
+                <option value="2048x2048">2048×2048 (High Res)</option>
+                <option value="custom">Custom...</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Quality / CFG</label>
+              <div class="range-wrap" style="margin-top:4px;">
+                <div class="range-header">
+                  <span style="font-size:11px;color:var(--text3);font-family:'JetBrains Mono',monospace;">Low → High</span>
+                  <span class="range-value" id="cfgVal">7</span>
+                </div>
+                <input type="range" min="1" max="20" value="7" id="cfgRange" oninput="document.getElementById('cfgVal').textContent=this.value">
+              </div>
+            </div>
+            <div class="form-group" id="customResGroup" style="display:none;">
+              <label>Width (px)</label>
+              <input type="text" id="customW" placeholder="e.g. 1280" value="1280">
+            </div>
+            <div class="form-group" id="customResGroup2" style="display:none;">
+              <label>Height (px)</label>
+              <input type="text" id="customH" placeholder="e.g. 720" value="720">
+            </div>
+          </div>
+          <div style="margin-top: 14px;">
+            <label>Quality Boosters</label>
+            <div class="chip-group" style="margin-top:8px;" id="qualityChips">
+              <div class="chip selected" data-q="masterpiece">masterpiece</div>
+              <div class="chip selected" data-q="best quality">best quality</div>
+              <div class="chip" data-q="ultra detailed">ultra detailed</div>
+              <div class="chip selected" data-q="sharp focus">sharp focus</div>
+              <div class="chip" data-q="8k uhd">8K UHD</div>
+              <div class="chip" data-q="award winning">award winning</div>
+              <div class="chip" data-q="photorealistic skin">photorealistic skin</div>
+              <div class="chip" data-q="film grain">film grain</div>
+              <div class="chip" data-q="subsurface scattering">subsurface scattering</div>
+              <div class="chip" data-q="ray tracing">ray tracing</div>
+              <div class="chip" data-q="HDR">HDR</div>
+              <div class="chip" data-q="depth of field">depth of field</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Negative Prompts -->
+        <div class="section">
+          <div class="section-title">🚫 Negative Prompts</div>
+          <p class="help" style="margin-bottom: 12px;">These tell the AI what to avoid in the image.</p>
+          <div class="chip-group" id="negativeChips">
+            <div class="chip selected" data-neg="lowres">lowres</div>
+            <div class="chip selected" data-neg="bad anatomy">bad anatomy</div>
+            <div class="chip selected" data-neg="blurry">blurry</div>
+            <div class="chip selected" data-neg="ugly">ugly</div>
+            <div class="chip selected" data-neg="deformed">deformed</div>
+            <div class="chip selected" data-neg="extra limbs">extra limbs</div>
+            <div class="chip selected" data-neg="disfigured">disfigured</div>
+            <div class="chip" data-neg="watermark">watermark</div>
+            <div class="chip" data-neg="text">text</div>
+            <div class="chip" data-neg="signature">signature</div>
+            <div class="chip" data-neg="username">username</div>
+            <div class="chip" data-neg="jpeg artifacts">jpeg artifacts</div>
+            <div class="chip" data-neg="cropped">cropped</div>
+            <div class="chip" data-neg="out of frame">out of frame</div>
+            <div class="chip" data-neg="worst quality">worst quality</div>
+          </div>
+          <div class="form-group" style="margin-top:14px;">
+            <label>Custom Negatives</label>
+            <div class="tags-input-wrap" id="negTagsWrap" onclick="this.querySelector('input').focus()">
+              <input class="tag-input-field" id="negTagInput" placeholder="add negative prompt, press Enter..." onkeydown="handleNegTag(event)">
+            </div>
+          </div>
+        </div>
+
+        <!-- Model Presets -->
+        <div class="section">
+          <div class="section-title">🤖 Model / Platform Presets</div>
+          <div class="presets-grid">
+            <div class="preset-card" onclick="applyPreset('midjourney')">
+              <div class="preset-name">Midjourney v6</div>
+              <div class="preset-desc">Optimized for MJ parameters and style</div>
+            </div>
+            <div class="preset-card" onclick="applyPreset('sdxl')">
+              <div class="preset-name">Stable Diffusion XL</div>
+              <div class="preset-desc">SDXL-optimized quality tags and format</div>
+            </div>
+            <div class="preset-card" onclick="applyPreset('dalle')">
+              <div class="preset-name">DALL·E 3</div>
+              <div class="preset-desc">Natural language style for DALL·E</div>
+            </div>
+            <div class="preset-card" onclick="applyPreset('flux')">
+              <div class="preset-name">FLUX</div>
+              <div class="preset-desc">FLUX-optimized descriptive prompting</div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- SAVED PROMPTS TAB -->
+      <div class="tab-panel" id="tab-prompts">
+        <div class="section">
+          <div class="section-title">💾 Saved Prompts</div>
+          <div id="savedPromptsList">
+            <div class="empty-chars" style="padding:60px 20px;">
+              <div class="empty-icon">📋</div>
+              <p>No saved prompts yet.<br>Generate and save prompts from the Scene Builder tab.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- GUIDE TAB -->
+      <div class="tab-panel" id="tab-guide">
+        <div class="section">
+          <div class="section-title">🚀 Getting Started</div>
+          <div style="line-height:1.9;color:var(--text2);font-size:13px;font-family:'JetBrains Mono',monospace;">
+            <p style="margin-bottom:12px;color:var(--text);font-size:14px;font-family:'Syne',sans-serif;font-weight:700;">How to use Conjure</p>
+            <p><span style="color:var(--accent);">Step 1 →</span> Click <strong>"New Character"</strong> in the sidebar to create a character. Fill in their physical appearance, clothing, and other details. Save them with a name.</p>
+            <br>
+            <p><span style="color:var(--accent);">Step 2 →</span> Go to the <strong>Scene Builder</strong> tab. Select which characters appear in the scene using the chips at the top.</p>
+            <br>
+            <p><span style="color:var(--accent);">Step 3 →</span> Describe each character's specific action in the scene, the environment, lighting, mood, and composition.</p>
+            <br>
+            <p><span style="color:var(--accent);">Step 4 →</span> Configure your <strong>Generation Settings</strong> — image style (realistic vs cartoon), aspect ratio, resolution, and quality boosters.</p>
+            <br>
+            <p><span style="color:var(--accent);">Step 5 →</span> Click <strong>"Generate Prompt"</strong>. Copy the result for Midjourney, Stable Diffusion, DALL·E, or any AI image platform.</p>
+            <br>
+            <p><span style="color:var(--accent);">NSFW →</span> Toggle NSFW in the header. When OFF, mature content descriptors are automatically replaced with safe alternatives. When ON, full uncensored prompts are included.</p>
+          </div>
+        </div>
+        <div class="section">
+          <div class="section-title">💡 Tips for Consistent Characters</div>
+          <div style="line-height:1.9;color:var(--text2);font-size:13px;font-family:'JetBrains Mono',monospace;">
+            <p>• Be very specific with physical features (exact eye color, hair length/style, facial features, distinguishing marks)</p>
+            <br>
+            <p>• Include a reference to the person's <strong>unique identifiers</strong> like scars, tattoos, freckles, or a specific jawline shape</p>
+            <br>
+            <p>• For consistent body type use seed values in your AI tool alongside this prompt</p>
+            <br>
+            <p>• In Midjourney: use <code>--cref</code> with a reference image for best consistency</p>
+            <br>
+            <p>• In Stable Diffusion: use LoRA files trained on a specific character for true consistency</p>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </main>
+</div>
+
+<!-- CHARACTER MODAL -->
+<div class="modal-overlay" id="charModal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="charModalTitle">Create Character</div>
+      <button class="modal-close" onclick="closeCharacterModal()">✕</button>
+    </div>
+    <div class="modal-body">
+
+      <!-- Basic Info -->
+      <div class="section" style="margin-bottom:16px;">
+        <div class="section-title">Identity</div>
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Character Name *</label>
+            <input type="text" id="charName" placeholder="e.g. Rose, Jack, Aria...">
+          </div>
+          <div class="form-group">
+            <label>Gender</label>
+            <select id="charGender">
+              <option value="">— Select —</option>
+              <option>Female</option>
+              <option>Male</option>
+              <option>Non-binary</option>
+              <option>Androgynous</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Age / Age Range</label>
+            <input type="text" id="charAge" placeholder="e.g. 25, mid-30s, teenage...">
+          </div>
+          <div class="form-group">
+            <label>Ethnicity / Skin Tone</label>
+            <select id="charEthnicity">
+              <option value="">— Select —</option>
+              <option>Caucasian / Light Skin</option>
+              <option>East Asian</option>
+              <option>South Asian</option>
+              <option>Southeast Asian</option>
+              <option>Middle Eastern</option>
+              <option>African / Dark Skin</option>
+              <option>Latina / Hispanic</option>
+              <option>Mixed / Ambiguous</option>
+              <option>Fantasy / Supernatural</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- Physical Appearance -->
+      <div class="section" style="margin-bottom:16px;">
+        <div class="section-title">Physical Appearance</div>
+
+        <div style="margin-bottom:14px;">
+          <label>Body Type</label>
+          <div class="body-type-grid" style="margin-top:10px;" id="bodyTypeGrid">
+            <div class="body-type-card" data-body="Slim"><div class="body-type-icon">🪄</div><div class="body-type-label">Slim</div></div>
+            <div class="body-type-card" data-body="Athletic"><div class="body-type-icon">⚡</div><div class="body-type-label">Athletic</div></div>
+            <div class="body-type-card" data-body="Average"><div class="body-type-icon">🙂</div><div class="body-type-label">Average</div></div>
+            <div class="body-type-card" data-body="Curvy"><div class="body-type-icon">🌊</div><div class="body-type-label">Curvy</div></div>
+            <div class="body-type-card" data-body="Muscular"><div class="body-type-icon">💪</div><div class="body-type-label">Muscular</div></div>
+            <div class="body-type-card" data-body="Petite"><div class="body-type-icon">🌸</div><div class="body-type-label">Petite</div></div>
+            <div class="body-type-card" data-body="Plus Size"><div class="body-type-icon">🌺</div><div class="body-type-label">Plus Size</div></div>
+            <div class="body-type-card" data-body="Tall"><div class="body-type-icon">🗼</div><div class="body-type-label">Tall</div></div>
+          </div>
+        </div>
+
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Height</label>
+            <input type="text" id="charHeight" placeholder="e.g. 5'8, tall, petite...">
+          </div>
+          <div class="form-group">
+            <label>Face Shape</label>
+            <select id="charFace">
+              <option value="">— Select —</option>
+              <option>Oval</option>
+              <option>Round</option>
+              <option>Square</option>
+              <option>Heart</option>
+              <option>Diamond</option>
+              <option>Oblong</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Eye Color</label>
+            <div class="color-options" id="eyeColors">
+              <div class="color-option" data-color="brown eyes" style="background:#6B3E26;" title="Brown"></div>
+              <div class="color-option" data-color="blue eyes" style="background:#4A90D9;" title="Blue"></div>
+              <div class="color-option" data-color="green eyes" style="background:#3D7A4A;" title="Green"></div>
+              <div class="color-option" data-color="hazel eyes" style="background:#8B7355;" title="Hazel"></div>
+              <div class="color-option" data-color="grey eyes" style="background:#7E8C8D;" title="Grey"></div>
+              <div class="color-option" data-color="amber eyes" style="background:#D4A017;" title="Amber"></div>
+              <div class="color-option" data-color="violet eyes" style="background:#8B4EAF;" title="Violet"></div>
+              <div class="color-option" data-color="black eyes" style="background:#1a1a1a;" title="Black"></div>
+              <div class="color-option-custom" title="Custom">
+                <span>+</span>
+                <input type="color" id="eyeColorCustom" oninput="setCustomEyeColor(this.value)">
+              </div>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Hair Color</label>
+            <div class="color-options" id="hairColors">
+              <div class="color-option" data-color="black hair" style="background:#1a1a1a;" title="Black"></div>
+              <div class="color-option" data-color="dark brown hair" style="background:#3B2314;" title="Dark Brown"></div>
+              <div class="color-option" data-color="brown hair" style="background:#7B4F2E;" title="Brown"></div>
+              <div class="color-option" data-color="auburn hair" style="background:#A0522D;" title="Auburn"></div>
+              <div class="color-option" data-color="blonde hair" style="background:#D4B896;" title="Blonde"></div>
+              <div class="color-option" data-color="platinum blonde hair" style="background:#E8E0D5;" title="Platinum"></div>
+              <div class="color-option" data-color="red hair" style="background:#C0392B;" title="Red"></div>
+              <div class="color-option" data-color="white hair" style="background:#f0f0f0;" title="White"></div>
+              <div class="color-option" data-color="silver hair" style="background:#9B9B9B;" title="Silver"></div>
+              <div class="color-option" data-color="pink hair" style="background:#E8A0C0;" title="Pink"></div>
+              <div class="color-option" data-color="blue hair" style="background:#4A7DB5;" title="Blue"></div>
+              <div class="color-option-custom" title="Custom">
+                <span>+</span>
+                <input type="color" id="hairColorCustom" oninput="setCustomHairColor(this.value)">
+              </div>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Hair Style / Length</label>
+            <select id="charHairStyle">
+              <option value="">— Select —</option>
+              <option>Buzz Cut</option>
+              <option>Short (above ears)</option>
+              <option>Short Messy</option>
+              <option>Medium Length (chin)</option>
+              <option>Medium Wavy</option>
+              <option>Long Straight</option>
+              <option>Long Wavy</option>
+              <option>Long Curly</option>
+              <option>Very Long</option>
+              <option>Braided</option>
+              <option>Ponytail</option>
+              <option>Bun</option>
+              <option>Half Up Half Down</option>
+              <option>Pixie Cut</option>
+              <option>Bob Cut</option>
+              <option>Undercut</option>
+              <option>Dreadlocks</option>
+              <option>Afro</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Facial Features</label>
+            <input type="text" id="charFacialFeatures" placeholder="e.g. full lips, sharp jaw, button nose, freckles...">
+          </div>
+          <div class="form-group full">
+            <label>Distinguishing Marks</label>
+            <input type="text" id="charMarks" placeholder="e.g. scar on left cheek, rose tattoo on neck, beauty mark above lip, mole...">
+          </div>
+          <div class="form-group full">
+            <label>Additional Physical Description</label>
+            <textarea id="charPhysical" placeholder="Any additional physical details: posture, muscle definition, specific proportions, skin texture..."></textarea>
+          </div>
+        </div>
+      </div>
+
+      <!-- Clothing -->
+      <div class="section" style="margin-bottom:16px;">
+        <div class="section-title">👗 Default Clothing</div>
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Top / Shirt</label>
+            <input type="text" id="charTop" placeholder="e.g. white button-up shirt, black crop top...">
+          </div>
+          <div class="form-group">
+            <label>Bottom / Pants</label>
+            <input type="text" id="charBottom" placeholder="e.g. dark jeans, floral skirt...">
+          </div>
+          <div class="form-group">
+            <label>Outerwear</label>
+            <input type="text" id="charOuter" placeholder="e.g. leather jacket, trench coat...">
+          </div>
+          <div class="form-group">
+            <label>Footwear</label>
+            <input type="text" id="charShoes" placeholder="e.g. red heels, white sneakers...">
+          </div>
+          <div class="form-group full">
+            <label>Accessories</label>
+            <input type="text" id="charAccessories" placeholder="e.g. gold necklace, round glasses, leather watch, hoop earrings...">
+          </div>
+          <div class="form-group full">
+            <label>Full Outfit Description (override above)</label>
+            <textarea id="charOutfit" placeholder="Describe the complete outfit in detail if the fields above aren't specific enough..."></textarea>
+          </div>
+        </div>
+      </div>
+
+      <!-- Extra Character Tags -->
+      <div class="section" style="margin-bottom:16px;">
+        <div class="section-title">✨ Extra Tags & Traits</div>
+        <div class="form-group">
+          <label>Expression / Demeanor</label>
+          <select id="charExpression">
+            <option value="">— Default —</option>
+            <option>Neutral</option>
+            <option>Smiling</option>
+            <option>Laughing</option>
+            <option>Serious</option>
+            <option>Confident</option>
+            <option>Shy / Bashful</option>
+            <option>Seductive</option>
+            <option>Angry</option>
+            <option>Sad / Melancholic</option>
+            <option>Surprised</option>
+            <option>Focused</option>
+          </select>
+        </div>
+        <div class="form-group" style="margin-top:12px;">
+          <label>Custom Character Tags</label>
+          <div class="tags-input-wrap" id="charTagsWrap" onclick="this.querySelector('input').focus()">
+            <input class="tag-input-field" id="charTagInput" placeholder="e.g. ethereal, mysterious, warrior princess..." onkeydown="handleCharTag(event)">
+          </div>
+          <div class="help">Extra descriptors that define this character's essence</div>
+        </div>
+        <div class="form-group" style="margin-top:12px;">
+          <label>Character Notes (for reference only)</label>
+          <textarea id="charNotes" placeholder="Private notes about this character — NOT included in the prompt..." style="min-height:60px;"></textarea>
+        </div>
+      </div>
+
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeCharacterModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveCharacter()">💾 Save Character</button>
+    </div>
+  </div>
+</div>
+
+<!-- Mobile Characters Floating Button -->
+<button class="mobile-chars-btn" id="mobileCharsBtn" onclick="openMobileDrawer()">
+  👤 Characters <span id="mobileCharBadge" style="background:rgba(255,255,255,0.2);padding:2px 7px;border-radius:10px;font-size:11px;">0</span>
+</button>
+
+<!-- Mobile Character Drawer -->
+<div class="mobile-drawer-overlay" id="mobileDrawerOverlay" onclick="closeMobileDrawer()"></div>
+<div class="mobile-drawer" id="mobileDrawer">
+  <div class="mobile-drawer-handle"></div>
+  <div class="mobile-drawer-header">
+    <span style="font-size:14px;font-weight:700;">Characters</span>
+    <div style="display:flex;gap:8px;align-items:center;">
+      <span class="character-count" id="mobileCharCount">0</span>
+      <button class="btn btn-primary btn-sm" onclick="closeMobileDrawer(); openCharacterModal()">＋ New</button>
+      <button onclick="closeMobileDrawer()" style="background:var(--surface2);border:1px solid var(--border);color:var(--text2);width:30px;height:30px;border-radius:8px;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;">✕</button>
+    </div>
+  </div>
+  <div class="mobile-drawer-content" id="mobileCharList"></div>
+</div>
+
+
+
+<script>
+// ============================================================
+// STATE
+// ============================================================
+let state = {
+  characters: [],
+  savedPrompts: [],
+  selectedChars: [],
+  sceneTags: [],
+  negTags: [],
+  charTags: [],
+  editingCharId: null,
+  nsfwEnabled: false,
+  aspectRatio: '1:1',
+  imageStyle: '',
+  selectedMood: '',
+  selectedBodyType: '',
+  selectedEyeColor: '',
+  selectedHairColor: '',
+  promptMode: 'positive',
+  qualityTags: ['masterpiece', 'best quality', 'sharp focus'],
+  negativeTags: ['lowres', 'bad anatomy', 'blurry', 'ugly', 'deformed', 'extra limbs', 'disfigured'],
+  generatedPrompts: {
+    positive: '',
+    negative: '',
+    technical: '',
+    full: ''
+  }
+};
+
+// Color utility
+const COLORS_HEX = {
+  'brown eyes': '#6B3E26', 'blue eyes': '#4A90D9', 'green eyes': '#3D7A4A',
+  'hazel eyes': '#8B7355', 'grey eyes': '#7E8C8D', 'amber eyes': '#D4A017',
+  'violet eyes': '#8B4EAF', 'black eyes': '#1a1a1a',
+  'black hair': '#1a1a1a', 'dark brown hair': '#3B2314', 'brown hair': '#7B4F2E',
+  'auburn hair': '#A0522D', 'blonde hair': '#D4B896', 'platinum blonde hair': '#E8E0D5',
+  'red hair': '#C0392B', 'white hair': '#f0f0f0', 'silver hair': '#9B9B9B',
+  'pink hair': '#E8A0C0', 'blue hair': '#4A7DB5'
+};
+
+// NSFW word map
+const NSFW_MAP = {
+  'naked': 'undressed', 'nude': 'bare-skinned', 'topless': 'partially clothed',
+  'bottomless': 'lower body exposed', 'nipples': 'chest details', 'pussy': 'intimate area',
+  'cock': 'anatomy', 'penis': 'anatomy', 'vagina': 'anatomy', 'breasts': 'chest',
+  'ass': 'posterior', 'butt': 'posterior', 'genitals': 'body', 'sexy': 'attractive',
+  'erotic': 'sensual', 'explicit': 'detailed', 'nsfw': '', 'sex': 'intimacy',
+  'orgasm': 'peak emotion', 'aroused': 'excited', 'lustful': 'passionate',
+  'cleavage': 'neckline', 'lingerie': 'sleepwear', 'bikini': 'swimwear',
+  'underwear': 'undergarments', 'panties': 'underwear'
+};
+
+function censorText(text) {
+  if (!text) return text;
+  let result = text;
+  for (const [nsfw, safe] of Object.entries(NSFW_MAP)) {
+    const regex = new RegExp(`\\b${nsfw}\\b`, 'gi');
+    result = result.replace(regex, safe);
+  }
+  return result;
+}
+
+function processText(text) {
+  if (!state.nsfwEnabled) return censorText(text);
+  return text;
+}
+
+// ============================================================
+// NSFW TOGGLE
+// ============================================================
+function toggleNSFW() {
+  state.nsfwEnabled = !state.nsfwEnabled;
+  const el = document.getElementById('nsfwToggleEl');
+  const wrap = document.getElementById('nsfwToggleHeader');
+  if (state.nsfwEnabled) {
+    el.classList.add('on', 'nsfw-on');
+    showToast('⚠️ NSFW mode enabled — uncensored prompts', 'error');
+  } else {
+    el.classList.remove('on', 'nsfw-on');
+    showToast('✅ Safe mode enabled — prompts will be censored', 'success');
+  }
+}
+
+// ============================================================
+// TABS
+// ============================================================
+function switchTab(name, btn) {
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  btn.classList.add('active');
+}
+
+function switchPromptTab(mode, btn) {
+  state.promptMode = mode;
+  document.querySelectorAll('.prompt-tab').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  updatePromptDisplay();
+}
+
+// ============================================================
+// CHARACTER MODAL
+// ============================================================
+function openCharacterModal(id = null) {
+  state.editingCharId = id;
+  state.charTags = [];
+  state.selectedBodyType = '';
+  state.selectedEyeColor = '';
+  state.selectedHairColor = '';
+
+  // Reset form
+  ['charName','charAge','charHeight','charFacialFeatures','charMarks','charPhysical',
+   'charTop','charBottom','charOuter','charShoes','charAccessories','charOutfit',
+   'charNotes'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+  ['charGender','charEthnicity','charFace','charHairStyle','charExpression'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.value = '';
+  });
+
+  // Clear color selections
+  document.querySelectorAll('#eyeColors .color-option').forEach(el => el.classList.remove('selected'));
+  document.querySelectorAll('#hairColors .color-option').forEach(el => el.classList.remove('selected'));
+  document.querySelectorAll('.body-type-card').forEach(el => el.classList.remove('selected'));
+
+  // Clear char tags
+  const wrap = document.getElementById('charTagsWrap');
+  wrap.querySelectorAll('.tag-item').forEach(t => t.remove());
+
+  if (id !== null) {
+    const char = state.characters.find(c => c.id === id);
+    if (char) populateCharForm(char);
+    document.getElementById('charModalTitle').textContent = 'Edit Character';
+  } else {
+    document.getElementById('charModalTitle').textContent = 'Create Character';
+  }
+
+  document.getElementById('charModal').classList.add('open');
+}
+
+function populateCharForm(char) {
+  const fields = {
+    'charName': char.name, 'charAge': char.age, 'charHeight': char.height,
+    'charFacialFeatures': char.facialFeatures, 'charMarks': char.marks,
+    'charPhysical': char.physical, 'charTop': char.top, 'charBottom': char.bottom,
+    'charOuter': char.outer, 'charShoes': char.shoes, 'charAccessories': char.accessories,
+    'charOutfit': char.outfit, 'charNotes': char.notes,
+    'charGender': char.gender, 'charEthnicity': char.ethnicity, 'charFace': char.face,
+    'charHairStyle': char.hairStyle, 'charExpression': char.expression
+  };
+
+  for (const [id, val] of Object.entries(fields)) {
+    const el = document.getElementById(id);
+    if (el && val) el.value = val;
+  }
+
+  if (char.bodyType) {
+    state.selectedBodyType = char.bodyType;
+    document.querySelectorAll('.body-type-card').forEach(el => {
+      el.classList.toggle('selected', el.dataset.body === char.bodyType);
+    });
+  }
+  if (char.eyeColor) {
+    state.selectedEyeColor = char.eyeColor;
+    document.querySelectorAll('#eyeColors .color-option').forEach(el => {
+      el.classList.toggle('selected', el.dataset.color === char.eyeColor);
+    });
+  }
+  if (char.hairColor) {
+    state.selectedHairColor = char.hairColor;
+    document.querySelectorAll('#hairColors .color-option').forEach(el => {
+      el.classList.toggle('selected', el.dataset.color === char.hairColor);
+    });
+  }
+  if (char.tags) {
+    state.charTags = [...char.tags];
+    const wrap = document.getElementById('charTagsWrap');
+    char.tags.forEach(t => addTagToWrap(wrap, t, state.charTags));
+  }
+}
+
+function closeCharacterModal() {
+  document.getElementById('charModal').classList.remove('open');
+  state.editingCharId = null;
+}
+
+function saveCharacter() {
+  const name = document.getElementById('charName').value.trim();
+  if (!name) { showToast('⚠️ Character name is required!', 'error'); return; }
+
+  const char = {
+    id: state.editingCharId !== null ? state.editingCharId : Date.now(),
+    name,
+    gender: document.getElementById('charGender').value,
+    age: document.getElementById('charAge').value,
+    ethnicity: document.getElementById('charEthnicity').value,
+    bodyType: state.selectedBodyType,
+    height: document.getElementById('charHeight').value,
+    face: document.getElementById('charFace').value,
+    eyeColor: state.selectedEyeColor,
+    hairColor: state.selectedHairColor,
+    hairStyle: document.getElementById('charHairStyle').value,
+    facialFeatures: document.getElementById('charFacialFeatures').value,
+    marks: document.getElementById('charMarks').value,
+    physical: document.getElementById('charPhysical').value,
+    top: document.getElementById('charTop').value,
+    bottom: document.getElementById('charBottom').value,
+    outer: document.getElementById('charOuter').value,
+    shoes: document.getElementById('charShoes').value,
+    accessories: document.getElementById('charAccessories').value,
+    outfit: document.getElementById('charOutfit').value,
+    expression: document.getElementById('charExpression').value,
+    tags: [...state.charTags],
+    notes: document.getElementById('charNotes').value,
+    color: getCharColor(name)
+  };
+
+  if (state.editingCharId !== null) {
+    const idx = state.characters.findIndex(c => c.id === state.editingCharId);
+    state.characters[idx] = char;
+    showToast('✅ Character updated!', 'success');
+  } else {
+    state.characters.push(char);
+    showToast('✅ Character created!', 'success');
+  }
+
+  closeCharacterModal();
+  renderCharacterList();
+  renderSceneCharChips();
+}
+
+function deleteCharacter(id) {
+  state.characters = state.characters.filter(c => c.id !== id);
+  state.selectedChars = state.selectedChars.filter(cid => cid !== id);
+  renderCharacterList();
+  renderSceneCharChips();
+  showToast('🗑️ Character deleted', 'info');
+}
+
+function getCharColor(name) {
+  const colors = ['#7c6ef7','#e85d9b','#3dd6c8','#f0b95a','#3dd690','#f05a5a','#8B5CF6','#06B6D4'];
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  return colors[Math.abs(hash) % colors.length];
+}
+
+// ============================================================
+// CHARACTER LIST
+// ============================================================
+function renderCharacterList() {
+  const list = document.getElementById('characterList');
+  document.getElementById('charCount').textContent = state.characters.length;
+
+  // sync mobile badge
+  const mobileBadge = document.getElementById('mobileCharBadge');
+  const mobileCount = document.getElementById('mobileCharCount');
+  if (mobileBadge) mobileBadge.textContent = state.characters.length;
+  if (mobileCount) mobileCount.textContent = state.characters.length;
+
+  const cardHTML = state.characters.length
+    ? state.characters.map(char => {
+        const tags = [char.gender, char.bodyType, char.hairColor?.replace(' hair',''), char.eyeColor?.replace(' eyes','')]
+          .filter(Boolean).slice(0, 3);
+        return `
+          <div class="character-card ${state.selectedChars.includes(char.id) ? 'active' : ''}" onclick="toggleCharInScene(${char.id})">
+            <div class="char-card-header">
+              <div style="display:flex;align-items:center;flex:1;">
+                <div class="char-avatar" style="background:${char.color}22;color:${char.color};border:1px solid ${char.color}44;">
+                  ${char.name.charAt(0).toUpperCase()}
+                </div>
+                <div class="char-info">
+                  <div class="char-name">${char.name}</div>
+                  <div class="char-gender">${[char.gender, char.age].filter(Boolean).join(' · ')}</div>
+                </div>
+              </div>
+              <div class="char-actions">
+                <button class="char-btn char-btn-edit" onclick="event.stopPropagation(); openCharacterModal(${char.id})" title="Edit">✏️</button>
+                <button class="char-btn char-btn-delete" onclick="event.stopPropagation(); deleteCharacter(${char.id})" title="Delete">🗑️</button>
+              </div>
+            </div>
+            ${tags.length ? `<div class="char-tags">${tags.map(t => `<div class="char-tag">${t}</div>`).join('')}</div>` : ''}
+          </div>
+        `;
+      }).join('')
+    : `<div class="empty-chars"><div class="empty-icon">👤</div><p>No characters yet.<br>Create your first character to get started.</p></div>`;
+
+  list.innerHTML = cardHTML;
+
+  // mirror to mobile drawer
+  const mobileList = document.getElementById('mobileCharList');
+  if (mobileList) mobileList.innerHTML = cardHTML;
+}
+
+function toggleCharInScene(id) {
+  if (state.selectedChars.includes(id)) {
+    state.selectedChars = state.selectedChars.filter(c => c !== id);
+  } else {
+    state.selectedChars.push(id);
+  }
+  renderCharacterList();
+  renderSceneCharChips();
+  renderSceneCharDetails();
+}
+
+// ============================================================
+// SCENE CHAR CHIPS
+// ============================================================
+function renderSceneCharChips() {
+  const wrap = document.getElementById('sceneCharChips');
+  if (!state.characters.length) {
+    wrap.innerHTML = '<span style="color:var(--text3);font-size:12px;font-family:\'JetBrains Mono\',monospace;">Create characters first, then select them here.</span>';
+    return;
+  }
+  wrap.innerHTML = state.characters.map(char => `
+    <div class="scene-char-chip ${state.selectedChars.includes(char.id) ? 'selected' : ''}" onclick="toggleCharInScene(${char.id})">
+      <div class="scene-char-dot" style="background:${char.color};"></div>
+      ${char.name}
+    </div>
+  `).join('');
+}
+
+function renderSceneCharDetails() {
+  const wrap = document.getElementById('sceneCharDetails');
+  const selected = state.characters.filter(c => state.selectedChars.includes(c.id));
+  if (!selected.length) { wrap.innerHTML = ''; return; }
+
+  wrap.innerHTML = selected.map(char => `
+    <div class="char-scene-item">
+      <div class="char-scene-name">
+        <div class="scene-char-dot" style="background:${char.color};width:10px;height:10px;border-radius:50%;"></div>
+        ${char.name}
+        <span class="badge badge-purple">${char.gender || 'Character'}</span>
+      </div>
+      <div class="form-group">
+        <label>What is ${char.name} doing in this scene?</label>
+        <textarea id="charAction_${char.id}" placeholder="e.g. standing with arms crossed, smiling softly, running toward the camera, holding a sword..." style="min-height:70px;"></textarea>
+      </div>
+      <div class="form-group" style="margin-top:10px;">
+        <label>Outfit override for this scene (leave blank for default)</label>
+        <input type="text" id="charOutfitOverride_${char.id}" placeholder="e.g. wearing a red evening gown, in casual streetwear...">
+      </div>
+      <div class="form-group" style="margin-top:10px;">
+        <label>Expression override for this scene</label>
+        <select id="charExprOverride_${char.id}">
+          <option value="">— Use default —</option>
+          <option>Neutral</option><option>Smiling</option><option>Laughing</option>
+          <option>Serious</option><option>Confident</option><option>Shy / Bashful</option>
+          <option>Seductive</option><option>Angry</option><option>Sad / Melancholic</option>
+          <option>Surprised</option><option>Focused</option>
+        </select>
+      </div>
+    </div>
+  `).join('');
+}
+
+// ============================================================
+// INTERACTIVE ELEMENTS
+// ============================================================
+// Mood selection
+document.querySelectorAll('.mood-card').forEach(card => {
+  card.addEventListener('click', () => {
+    document.querySelectorAll('.mood-card').forEach(c => c.classList.remove('selected'));
+    card.classList.add('selected');
+    state.selectedMood = card.dataset.mood;
+  });
+});
+
+// Aspect ratio
+document.querySelectorAll('.aspect-card').forEach(card => {
+  card.addEventListener('click', () => {
+    document.querySelectorAll('.aspect-card').forEach(c => c.classList.remove('selected'));
+    card.classList.add('selected');
+    state.aspectRatio = card.dataset.ratio;
+  });
+});
+
+// Style grid
+document.querySelectorAll('.style-card').forEach(card => {
+  card.addEventListener('click', () => {
+    document.querySelectorAll('.style-card').forEach(c => c.classList.remove('selected'));
+    card.classList.add('selected');
+    state.imageStyle = card.dataset.style;
+  });
+});
+
+// Body type
+document.querySelectorAll('.body-type-card').forEach(card => {
+  card.addEventListener('click', () => {
+    document.querySelectorAll('.body-type-card').forEach(c => c.classList.remove('selected'));
+    card.classList.add('selected');
+    state.selectedBodyType = card.dataset.body;
+  });
+});
+
+// Eye color
+document.querySelectorAll('#eyeColors .color-option').forEach(el => {
+  el.addEventListener('click', () => {
+    document.querySelectorAll('#eyeColors .color-option').forEach(c => c.classList.remove('selected'));
+    el.classList.add('selected');
+    state.selectedEyeColor = el.dataset.color;
+  });
+});
+
+// Hair color
+document.querySelectorAll('#hairColors .color-option').forEach(el => {
+  el.addEventListener('click', () => {
+    document.querySelectorAll('#hairColors .color-option').forEach(c => c.classList.remove('selected'));
+    el.classList.add('selected');
+    state.selectedHairColor = el.dataset.color;
+  });
+});
+
+// Quality chips
+document.querySelectorAll('#qualityChips .chip').forEach(chip => {
+  chip.addEventListener('click', () => {
+    chip.classList.toggle('selected');
+    const tag = chip.dataset.q;
+    if (chip.classList.contains('selected')) {
+      if (!state.qualityTags.includes(tag)) state.qualityTags.push(tag);
+    } else {
+      state.qualityTags = state.qualityTags.filter(t => t !== tag);
+    }
+  });
+});
+
+// Negative chips
+document.querySelectorAll('#negativeChips .chip').forEach(chip => {
+  chip.addEventListener('click', () => {
+    chip.classList.toggle('selected');
+    const tag = chip.dataset.neg;
+    if (chip.classList.contains('selected')) {
+      if (!state.negativeTags.includes(tag)) state.negativeTags.push(tag);
+    } else {
+      state.negativeTags = state.negativeTags.filter(t => t !== tag);
+    }
+  });
+});
+
+function setCustomEyeColor(hex) {
+  document.querySelectorAll('#eyeColors .color-option').forEach(c => c.classList.remove('selected'));
+  state.selectedEyeColor = `${hex} colored eyes`;
+}
+
+function setCustomHairColor(hex) {
+  document.querySelectorAll('#hairColors .color-option').forEach(c => c.classList.remove('selected'));
+  state.selectedHairColor = `${hex} colored hair`;
+}
+
+// Resolution
+function updateResFromPreset() {
+  const val = document.getElementById('resPreset').value;
+  const isCustom = val === 'custom';
+  document.getElementById('customResGroup').style.display = isCustom ? 'flex' : 'none';
+  document.getElementById('customResGroup2').style.display = isCustom ? 'flex' : 'none';
+}
+
+// ============================================================
+// TAGS
+// ============================================================
+function addTagToWrap(wrap, value, arr) {
+  if (!value.trim()) return;
+  const tag = document.createElement('div');
+  tag.className = 'tag-item';
+  tag.innerHTML = `${value}<button onclick="removeTag(this, '${value}', ${JSON.stringify(arr)})">×</button>`;
+  tag.querySelector('button').onclick = () => {
+    const idx = arr.indexOf(value);
+    if (idx > -1) arr.splice(idx, 1);
+    tag.remove();
+  };
+  wrap.insertBefore(tag, wrap.querySelector('input'));
+  if (!arr.includes(value)) arr.push(value);
+}
+
+function handleCharTag(e) {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    const val = e.target.value.trim();
+    if (val) {
+      addTagToWrap(document.getElementById('charTagsWrap'), val, state.charTags);
+      e.target.value = '';
+    }
+  }
+}
+
+function handleSceneTag(e) {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    const val = e.target.value.trim();
+    if (val) {
+      addTagToWrap(document.getElementById('sceneTagsWrap'), val, state.sceneTags);
+      e.target.value = '';
+    }
+  }
+}
+
+function handleNegTag(e) {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    const val = e.target.value.trim();
+    if (val) {
+      addTagToWrap(document.getElementById('negTagsWrap'), val, state.negTags);
+      e.target.value = '';
+    }
+  }
+}
+
+// ============================================================
+// PROMPT GENERATION
+// ============================================================
+function buildCharacterPrompt(char, overrideOutfit = '', overrideExpr = '') {
+  const parts = [];
+
+  // Identity
+  const identity = [char.gender, char.ethnicity, char.age ? `${char.age} years old` : ''].filter(Boolean);
+  if (identity.length) parts.push(identity.join(', '));
+
+  // Physical
+  const physical = [];
+  if (char.bodyType) physical.push(`${char.bodyType.toLowerCase()} body type`);
+  if (char.height) physical.push(char.height);
+  if (char.face) physical.push(`${char.face.toLowerCase()} face`);
+  if (char.eyeColor) physical.push(char.eyeColor);
+  if (char.hairColor && char.hairStyle) physical.push(`${char.hairColor} ${char.hairStyle}`);
+  else if (char.hairColor) physical.push(char.hairColor);
+  else if (char.hairStyle) physical.push(`${char.hairStyle} hair`);
+  if (char.facialFeatures) physical.push(char.facialFeatures);
+  if (char.marks) physical.push(char.marks);
+  if (char.physical) physical.push(char.physical);
+  if (physical.length) parts.push(physical.join(', '));
+
+  // Expression
+  const expr = overrideExpr || char.expression;
+  if (expr) parts.push(`${expr.toLowerCase()} expression`);
+
+  // Outfit
+  const outfit = overrideOutfit || char.outfit;
+  if (outfit) {
+    parts.push(`wearing ${outfit}`);
+  } else {
+    const clothingParts = [];
+    if (char.top) clothingParts.push(char.top);
+    if (char.bottom) clothingParts.push(char.bottom);
+    if (char.outer) clothingParts.push(char.outer);
+    if (char.shoes) clothingParts.push(char.shoes);
+    if (char.accessories) clothingParts.push(char.accessories);
+    if (clothingParts.length) parts.push(`wearing ${clothingParts.join(', ')}`);
+  }
+
+  // Tags
+  if (char.tags && char.tags.length) parts.push(char.tags.join(', '));
+
+  return processText(parts.filter(Boolean).join(', '));
+}
+
+function generatePrompt() {
+  const selected = state.characters.filter(c => state.selectedChars.includes(c.id));
+  if (!selected.length) {
+    showToast('⚠️ Select at least one character!', 'error');
+    return;
+  }
+
+  // Build character sections
+  const charSections = selected.map(char => {
+    const action = document.getElementById(`charAction_${char.id}`)?.value || '';
+    const outfitOvr = document.getElementById(`charOutfitOverride_${char.id}`)?.value || '';
+    const exprOvr = document.getElementById(`charExprOverride_${char.id}`)?.value || '';
+    const charPrompt = buildCharacterPrompt(char, outfitOvr, exprOvr);
+    return action ? `${charPrompt}, ${processText(action)}` : charPrompt;
+  });
+
+  // Scene description
+  const env = document.getElementById('sceneEnv').value;
+  const time = document.getElementById('sceneTime').value;
+  const weather = document.getElementById('sceneWeather').value;
+  const lighting = document.getElementById('sceneLighting').value;
+  const bg = document.getElementById('sceneBg').value;
+  const action = document.getElementById('sceneAction').value;
+  const cam = document.getElementById('sceneCam').value;
+  const shot = document.getElementById('sceneShot').value;
+
+  const sceneDetails = [env, time, weather, lighting].filter(Boolean).join(', ');
+  const bgText = bg ? processText(bg) : '';
+  const actionText = action ? processText(action) : '';
+
+  // Style
+  const style = state.imageStyle ? `${state.imageStyle} style` : '';
+
+  // Mood
+  const mood = state.selectedMood ? `${state.selectedMood.toLowerCase()} mood` : '';
+
+  // Camera
+  const cameraDetails = [shot, cam].filter(Boolean).join(', ');
+
+  // Quality
+  const quality = state.qualityTags.join(', ');
+
+  // Scene tags
+  const extraTags = state.sceneTags.join(', ');
+
+  // --- BUILD POSITIVE PROMPT ---
+  const positiveParts = [];
+
+  // Style first
+  if (style) positiveParts.push(style);
+  if (quality) positiveParts.push(quality);
+
+  // Character(s)
+  if (selected.length === 1) {
+    positiveParts.push(`1 ${selected[0].gender || 'person'}`);
+    positiveParts.push(charSections[0]);
+  } else {
+    positiveParts.push(`${selected.length} people`);
+    selected.forEach((char, i) => {
+      positiveParts.push(`[character: ${char.name} — ${charSections[i]}]`);
+    });
+  }
+
+  // Actions
+  if (actionText) positiveParts.push(actionText);
+
+  // Scene
+  if (sceneDetails) positiveParts.push(`setting: ${sceneDetails}`);
+  if (bgText) positiveParts.push(`background: ${bgText}`);
+  if (mood) positiveParts.push(mood);
+  if (cameraDetails) positiveParts.push(cameraDetails);
+  if (extraTags) positiveParts.push(extraTags);
+
+  const positivePrompt = positiveParts.filter(Boolean).join(', ');
+
+  // --- BUILD NEGATIVE PROMPT ---
+  const negParts = [...state.negativeTags, ...state.negTags];
+  const negativePrompt = negParts.join(', ');
+
+  // --- TECHNICAL ---
+  const res = document.getElementById('resPreset').value;
+  const cfg = document.getElementById('cfgRange').value;
+  const resVal = res === 'custom'
+    ? `${document.getElementById('customW').value}x${document.getElementById('customH').value}`
+    : res;
+  const technicalPrompt = `Resolution: ${resVal} | Aspect Ratio: ${state.aspectRatio} | CFG Scale: ${cfg} | Style: ${state.imageStyle || 'Not specified'}`;
+
+  // --- FULL ---
+  const fullPrompt = `POSITIVE:\n${positivePrompt}\n\nNEGATIVE:\n${negativePrompt}\n\nTECHNICAL:\n${technicalPrompt}`;
+
+  state.generatedPrompts = {
+    positive: positivePrompt,
+    negative: negativePrompt,
+    technical: technicalPrompt,
+    full: fullPrompt
+  };
+
+  updatePromptDisplay();
+  showToast('⚡ Prompt generated!', 'success');
+
+  // Scroll to prompt
+  document.getElementById('promptOutputWrap').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function updatePromptDisplay() {
+  const el = document.getElementById('promptDisplay');
+  const text = state.generatedPrompts[state.promptMode];
+  if (!text) {
+    el.innerHTML = '<span class="prompt-empty">⚡ Fill in the scene details above and click "Generate Prompt" to build your AI image prompt.</span>';
+    return;
+  }
+  el.textContent = text;
+}
+
+function copyPrompt() {
+  const text = state.generatedPrompts[state.promptMode];
+  if (!text) { showToast('⚠️ Generate a prompt first!', 'error'); return; }
+  navigator.clipboard.writeText(text).then(() => showToast('📋 Copied to clipboard!', 'success'));
+}
+
+function copyForMidjourney() {
+  const pos = state.generatedPrompts.positive;
+  if (!pos) { showToast('⚠️ Generate a prompt first!', 'error'); return; }
+  const res = document.getElementById('resPreset').value.replace('x', ':').split(':');
+  const ar = state.aspectRatio;
+  const cfg = document.getElementById('cfgRange').value;
+  const mj = `${pos} --ar ${ar} --v 6 --stylize 100 --q 2`;
+  navigator.clipboard.writeText(mj).then(() => showToast('🎨 Midjourney prompt copied!', 'success'));
+}
+
+function copyForSD() {
+  const pos = state.generatedPrompts.positive;
+  const neg = state.generatedPrompts.negative;
+  if (!pos) { showToast('⚠️ Generate a prompt first!', 'error'); return; }
+  const sd = `Positive: ${pos}\n\nNegative: ${neg || 'lowres, bad anatomy, blurry'}`;
+  navigator.clipboard.writeText(sd).then(() => showToast('🖼 Stable Diffusion prompt copied!', 'success'));
+}
+
+function copyForDALLE() {
+  const pos = state.generatedPrompts.positive;
+  if (!pos) { showToast('⚠️ Generate a prompt first!', 'error'); return; }
+  // DALL-E prefers natural language
+  navigator.clipboard.writeText(pos.replace(/,\s*/g, '. ').replace(/\[character: [^\]]+\] /g, '')).then(() => showToast('🤖 DALL·E prompt copied!', 'success'));
+}
+
+function clearScene() {
+  document.getElementById('sceneEnv').value = '';
+  document.getElementById('sceneTime').value = '';
+  document.getElementById('sceneWeather').value = '';
+  document.getElementById('sceneLighting').value = '';
+  document.getElementById('sceneBg').value = '';
+  document.getElementById('sceneAction').value = '';
+  document.getElementById('sceneCam').value = '';
+  document.getElementById('sceneShot').value = '';
+  document.querySelectorAll('.mood-card').forEach(c => c.classList.remove('selected'));
+  state.selectedMood = '';
+  state.sceneTags = [];
+  document.querySelectorAll('#sceneTagsWrap .tag-item').forEach(t => t.remove());
+  state.generatedPrompts = { positive: '', negative: '', technical: '', full: '' };
+  updatePromptDisplay();
+  showToast('🗑️ Scene cleared', 'info');
+}
+
+// ============================================================
+// SAVED PROMPTS
+// ============================================================
+function savePrompt() {
+  const pos = state.generatedPrompts.positive;
+  if (!pos) { showToast('⚠️ Generate a prompt first!', 'error'); return; }
+
+  const selected = state.characters.filter(c => state.selectedChars.includes(c.id));
+  const saved = {
+    id: Date.now(),
+    date: new Date().toLocaleDateString(),
+    time: new Date().toLocaleTimeString(),
+    characters: selected.map(c => c.name),
+    positive: state.generatedPrompts.positive,
+    negative: state.generatedPrompts.negative,
+    technical: state.generatedPrompts.technical,
+    style: state.imageStyle,
+    aspect: state.aspectRatio
+  };
+
+  state.savedPrompts.unshift(saved);
+  renderSavedPrompts();
+  showToast('💾 Prompt saved!', 'success');
+}
+
+function renderSavedPrompts() {
+  const wrap = document.getElementById('savedPromptsList');
+  if (!state.savedPrompts.length) {
+    wrap.innerHTML = `<div class="empty-chars" style="padding:60px 20px;"><div class="empty-icon">📋</div><p>No saved prompts yet.<br>Generate and save prompts from the Scene Builder tab.</p></div>`;
+    return;
+  }
+
+  wrap.innerHTML = state.savedPrompts.map((p, i) => `
+    <div style="background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:12px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+        <div>
+          <div style="font-size:13px;font-weight:700;">${p.characters.join(' + ') || 'Scene'}</div>
+          <div style="font-size:11px;color:var(--text3);font-family:'JetBrains Mono',monospace;margin-top:2px;">${p.date} · ${p.time} · ${p.style || 'No style'} · ${p.aspect}</div>
+        </div>
+        <div style="display:flex;gap:6px;">
+          <button class="btn btn-secondary btn-sm" onclick="copySavedPrompt(${i})">📋 Copy</button>
+          <button class="btn btn-danger btn-sm" onclick="deleteSavedPrompt(${i})">🗑</button>
+        </div>
+      </div>
+      <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text2);background:var(--surface3);border-radius:8px;padding:10px;line-height:1.7;max-height:80px;overflow:hidden;text-overflow:ellipsis;">${p.positive}</div>
+    </div>
+  `).join('');
+}
+
+function copySavedPrompt(i) {
+  const p = state.savedPrompts[i];
+  const text = `POSITIVE:\n${p.positive}\n\nNEGATIVE:\n${p.negative || ''}\n\nTECHNICAL:\n${p.technical || ''}`;
+  navigator.clipboard.writeText(text).then(() => showToast('📋 Copied!', 'success'));
+}
+
+function deleteSavedPrompt(i) {
+  state.savedPrompts.splice(i, 1);
+  renderSavedPrompts();
+  showToast('🗑️ Deleted', 'info');
+}
+
+// ============================================================
+// MODEL PRESETS
+// ============================================================
+function applyPreset(model) {
+  const presets = {
+    midjourney: {
+      quality: ['vivid', 'stylized', 'cinematic'],
+      msg: '🎨 Midjourney preset applied!'
+    },
+    sdxl: {
+      quality: ['masterpiece', 'best quality', 'ultra detailed', 'sharp focus', 'HDR'],
+      msg: '🖼 SDXL preset applied!'
+    },
+    dalle: {
+      quality: ['detailed', 'vibrant', 'photorealistic'],
+      msg: '🤖 DALL·E preset applied!'
+    },
+    flux: {
+      quality: ['cinematic lighting', 'ultra detailed', 'award winning photography'],
+      msg: '⚡ FLUX preset applied!'
+    }
+  };
+
+  const preset = presets[model];
+  if (!preset) return;
+
+  state.qualityTags = preset.quality;
+  document.querySelectorAll('#qualityChips .chip').forEach(chip => {
+    const isSelected = preset.quality.includes(chip.dataset.q);
+    chip.classList.toggle('selected', isSelected);
+  });
+
+  showToast(preset.msg, 'success');
+}
+
+// ============================================================
+// EXPORT / IMPORT
+// ============================================================
+function exportAll() {
+  const data = JSON.stringify({
+    characters: state.characters,
+    savedPrompts: state.savedPrompts,
+    version: '1.0'
+  }, null, 2);
+  const blob = new Blob([data], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'conjure-export.json';
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast('⬇ Data exported!', 'success');
+}
+
+function importAll() {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = '.json';
+  input.onchange = (e) => {
+    const file = e.target.files[0];
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      try {
+        const data = JSON.parse(ev.target.result);
+        if (data.characters) state.characters = data.characters;
+        if (data.savedPrompts) state.savedPrompts = data.savedPrompts;
+        renderCharacterList();
+        renderSceneCharChips();
+        renderSavedPrompts();
+        showToast('⬆ Data imported!', 'success');
+      } catch {
+        showToast('❌ Invalid file format', 'error');
+      }
+    };
+    reader.readAsText(file);
+  };
+  input.click();
+}
+
+// ============================================================
+// TOAST
+// ============================================================
+function showToast(message, type = 'info') {
+  const container = document.getElementById('toastContainer');
+  const toast = document.createElement('div');
+  toast.className = `toast ${type}`;
+  toast.textContent = message;
+  container.appendChild(toast);
+  setTimeout(() => toast.remove(), 3200);
+}
+
+// ============================================================
+// CLOSE MODAL ON OVERLAY CLICK
+// ============================================================
+document.getElementById('charModal').addEventListener('click', function(e) {
+  if (e.target === this) closeCharacterModal();
+});
+
+// Initial render
+renderCharacterList();
+renderSceneCharChips();
+</script>
+</body>
+</html>
